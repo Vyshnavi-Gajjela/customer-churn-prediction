@@ -38,7 +38,7 @@ The system performs:
 
 ## Dataset
 
-IBM Telco Customer Churn Dataset
+IBM Telco Customer Churn Dataset.
 
 ## Technologies Used
 
