@@ -2,8 +2,6 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-from tensorflow.keras.models import load_model
-
 st.set_page_config(page_title='Customer Churn Prediction',layout='wide')
 
 st.title('Customer Churn Prediction System')
@@ -17,13 +15,7 @@ scaler = joblib.load('models/scaler.pkl')
 feature_names = joblib.load('models/feature_names.pkl')
 
 # LOAD BEST MODEL
-try:
-    model = joblib.load('models/best_model.pkl')
-    is_ann = False
-
-except:
-    model = load_model('models/best_ann_model.h5')
-    is_ann = True
+model = joblib.load('models/best_model.pkl')
 
 # USER INPUTS
 SeniorCitizen = st.selectbox('Senior Citizen',[0, 1])
@@ -88,11 +80,7 @@ if st.button('Predict Churn'):
 
     input_scaled = scaler.transform(input_data)
 
-    if is_ann:
-        churn_probability = model.predict(input_scaled)[0][0]
-    else:
-        churn_probability = model.predict_proba(input_scaled)[0][1]
-
+    churn_probability = model.predict_proba(input_scaled)[0][1]
     prediction = int(churn_probability >= 0.5)
 
     st.subheader('Prediction Result')
