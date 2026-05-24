@@ -9,8 +9,7 @@ The project includes:
 - Exploratory Data Analysis (EDA)
 - Feature engineering
 - Model training and comparison
-- Explainable AI analysis
-- Customer risk segmentation
+- Feature importance analysis
 - Streamlit deployment
 
 ## Models Implemented
@@ -18,22 +17,13 @@ The project includes:
 The following models were trained and evaluated:
 
 - Logistic Regression
+- Decision Tree
 - Random Forest
+- Support Vector Machine (SVM)
+- K-Nearest Neighbors (KNN)
 - XGBoost
 - CatBoost
 - Artificial Neural Network (ANN)
-
-## Model Performance
-
-| Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC |
-|-------|-----------|-----------|---------|-----------|----------|
-| ANN | 78.99% | 0.6219 | 0.5321 | 0.5735 | 0.8350 |
-| Random Forest | 77.15% | 0.5563 | 0.6872 | 0.6148 | 0.8336 |
-| CatBoost | 77.00% | 0.5592 | 0.6310 | 0.5930 | 0.8292 |
-| XGBoost | 77.36% | 0.5703 | 0.5963 | 0.5830 | 0.8261 |
-| Logistic Regression | 76.65% | 0.5556 | 0.6016 | 0.5777 | 0.8194 |
-
-The ANN model achieved the highest accuracy and ROC-AUC score, while Random Forest produced the highest recall and F1-score among the Machine Learning models.
 
 ## Features
 
@@ -43,9 +33,7 @@ The ANN model achieved the highest accuracy and ROC-AUC score, while Random Fore
 - SMOTE Balancing
 - Multiple Model Comparison
 - ROC Curve Evaluation
-- SHAP Explainability
 - Feature Importance Analysis
-- Customer Risk Segmentation
 - Retention Recommendation System
 - Interactive Streamlit Dashboard
 - Real-Time Churn Prediction
@@ -70,7 +58,6 @@ The dataset contains:
 - TensorFlow
 - XGBoost
 - CatBoost
-- SHAP
 - Streamlit
 - Matplotlib
 - Seaborn
@@ -95,8 +82,6 @@ The project includes several visualizations such as:
 - Correlation Heatmap
 - ROC Curve
 - Feature Importance Plot
-- SHAP Summary Plot
-- ANN Accuracy and Loss Curves
 - Model Comparison Graph
 - Confusion Matrix
 
@@ -105,13 +90,28 @@ The project includes several visualizations such as:
 ```text
 customer-churn-prediction/
 │
-├── models/
-├── outputs/
-├── .gitignore
 ├── app.py
-├── README.md
+├── train.py
 ├── requirements.txt
-└── train.py
+├── README.md
+├── .gitignore
+│
+├── data/
+│   └── customer_churn.csv
+│
+├── models/
+│
+├── outputs/
+│   ├── plots/
+│   └── reports/
+│
+├── src/
+│   ├── __init__.py
+│   ├── data_preprocessing.py
+│   ├── feature_engineering.py
+│   ├── eda.py
+│   ├── model_training.py
+│   └── model_evaluation.py
 ```
 
 ## Running the Project
@@ -128,14 +128,14 @@ python train.py
 streamlit run app.py
 ```
 
-## Streamlit Deployment
+## Streamlit Application
 
 The Streamlit application allows users to:
 - Enter customer details
 - Predict churn probability
-- Identify customer risk level
 - View retention recommendations
+- Use the automatically selected best model
 
 ## Conclusion
 
-This project demonstrates a complete end-to-end Machine Learning workflow for customer churn prediction. It combines predictive analytics, explainable AI, visualization, and deployment to provide meaningful business insights and customer retention strategies.
+This project demonstrates a complete end-to-end Machine Learning workflow for customer churn prediction. It combines predictive analytics, visualization, feature importance analysis, and deployment to provide meaningful business insights and customer retention strategies.

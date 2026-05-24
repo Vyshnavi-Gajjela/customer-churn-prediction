@@ -1,6 +1,32 @@
+# Python Cache
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Virtual Environment
 venv/
+env/
+.venv/
+
+# Jupyter Notebook
 .ipynb_checkpoints/
-catboost_info/
-*.h5
+
+# Streamlit
+.streamlit/
+
+# Outputs
+outputs/plots/*
+outputs/reports/*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary Files
+*.tmp

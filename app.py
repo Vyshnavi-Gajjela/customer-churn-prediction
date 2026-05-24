@@ -1,48 +1,40 @@
-import streamlit as st
-import pandas as pd
 import joblib
+import pandas as pd
+import streamlit as st
 
-model = joblib.load('models/xgb_model.pkl')
-training_columns = joblib.load('models/training_columns.pkl')
+from tensorflow.keras.models import load_model
 
-st.set_page_config(
-    page_title='Customer Churn Prediction',
-    layout='centered'
-)
+st.set_page_config(page_title='Customer Churn Prediction',layout='wide')
 
 st.title('Customer Churn Prediction System')
 
-st.subheader('Predict Customer Churn Probability')
+st.write('Predict whether a customer is likely to churn or not.')
 
-st.markdown('This application predicts telecom customer churn probability using an XGBoost Machine Learning model.')
+# LOAD SCALER
+scaler = joblib.load('models/scaler.pkl')
 
-tenure = st.slider('Tenure (Months)', 0, 72, 12)
+# LOAD FEATURE NAMES
+feature_names = joblib.load('models/feature_names.pkl')
 
-monthlycharges = st.slider('Monthly Charges', 0, 150, 70)
+# LOAD BEST MODEL
+try:
+    model = joblib.load('models/best_model.pkl')
+    is_ann = False
 
-totalcharges = st.slider('Total Charges', 0, 10000, 2500)
+except:
+    model = load_model('models/best_ann_model.h5')
+    is_ann = True
 
-seniorcitizen = st.selectbox('Senior Citizen', [0, 1])
+# USER INPUTS
+SeniorCitizen = st.selectbox('Senior Citizen',[0, 1])
 
-contract = st.selectbox(
-    'Contract Type',
-    [
-        'Month-to-month',
-        'One year',
-        'Two year'
-    ]
-)
+tenure = st.slider('Tenure (Months)',0,72,12)
 
-internetservice = st.selectbox(
-    'Internet Service',
-    [
-        'DSL',
-        'Fiber optic',
-        'No'
-    ]
-)
+InternetService = st.selectbox('Internet Service',['DSL', 'Fiber optic', 'No'])
 
-paymentmethod = st.selectbox(
+Contract = st.selectbox('Contract Type',['Month-to-month', 'One year', 'Two year'])
+
+PaymentMethod = st.selectbox(
     'Payment Method',
     [
         'Electronic check',
@@ -52,88 +44,70 @@ paymentmethod = st.selectbox(
     ]
 )
 
-paperlessbilling = st.selectbox(
-    'Paperless Billing',
-    [
-        'Yes',
-        'No'
-    ]
-)
+MonthlyCharges = st.number_input('Monthly Charges',min_value=0.0,value=70.0)
 
-input_data = pd.DataFrame({
-    'SeniorCitizen': [seniorcitizen],
-    'tenure': [tenure],
-    'MonthlyCharges': [monthlycharges],
-    'TotalCharges': [totalcharges],
-    'AvgMonthlySpend': [
-        totalcharges / (tenure + 1)
-    ]
-})
+TotalCharges = st.number_input('Total Charges',min_value=0.0,value=1000.0)
 
-categorical_values = {
-    f'Contract_{contract}': 1,
-    f'InternetService_{internetservice}': 1,
-    f'PaymentMethod_{paymentmethod}': 1,
-    f'PaperlessBilling_{paperlessbilling}': 1
-}
+TotalServices = st.slider('Total Services Used',0,6,3)
 
-for column, value in categorical_values.items():
-
-    if column in training_columns:
-
-        input_data[column] = value
-
-for column in training_columns:
-
-    if column not in input_data.columns:
-
-        input_data[column] = 0
-
-input_data = input_data.reindex(
-    columns=training_columns,
-    fill_value=0
-)
-
+# PREDICT BUTTON
 if st.button('Predict Churn'):
 
-    probability = model.predict_proba(input_data)[0][1]
+    AvgMonthlySpend = TotalCharges / (tenure + 1)
 
-    st.subheader(f'Churn Probability: {probability:.2f}')
+    HighValueCustomer = int(MonthlyCharges > 70)
 
-    if probability < 0.30:
+    MonthlyContractRisk = int(Contract == 'Month-to-month')
 
-        st.success('Low Risk Customer')
+    input_data = pd.DataFrame({
+        'SeniorCitizen': [SeniorCitizen],
+        'tenure': [tenure],
+        'MonthlyCharges': [MonthlyCharges],
+        'TotalCharges': [TotalCharges],
+        'AvgMonthlySpend': [AvgMonthlySpend],
+        'TotalServices': [TotalServices],
+        'HighValueCustomer': [HighValueCustomer],
+        'MonthlyContractRisk': [MonthlyContractRisk],
 
-        st.info('Suggested Action: Maintain engagement through loyalty rewards and personalized offers.')
+        'InternetService_Fiber optic': [1 if InternetService == 'Fiber optic' else 0],
 
-    elif probability < 0.70:
+        'InternetService_No': [1 if InternetService == 'No' else 0],
 
-        st.warning('Medium Risk Customer')
+        'Contract_One year': [1 if Contract == 'One year' else 0],
 
-        if tenure < 12:
+        'Contract_Two year': [1 if Contract == 'Two year' else 0],
 
-            st.info('Suggested Action: Provide onboarding assistance and proactive customer support.')
+        'PaymentMethod_Credit card (automatic)': [1 if PaymentMethod == 'Credit card (automatic)' else 0],
 
-        elif monthlycharges > 80:
+        'PaymentMethod_Electronic check': [1 if PaymentMethod == 'Electronic check' else 0],
 
-            st.info('Suggested Action: Offer customized discounts or bundled service plans.')
+        'PaymentMethod_Mailed check': [1 if PaymentMethod == 'Mailed check' else 0]
+    })
 
-        else:
+    input_data = input_data.reindex(columns=feature_names,fill_value=0)
 
-            st.info('Suggested Action: Improve engagement through targeted retention campaigns.')
+    input_scaled = scaler.transform(input_data)
+
+    if is_ann:
+        churn_probability = model.predict(input_scaled)[0][0]
+    else:
+        churn_probability = model.predict_proba(input_scaled)[0][1]
+
+    prediction = int(churn_probability >= 0.5)
+
+    st.subheader('Prediction Result')
+
+    if prediction == 1:
+        st.error(f'Customer is likely to churn with probability {churn_probability:.2%}')
+        st.subheader('Recommendations')
+        st.write('- Offer long-term contract discounts')
+        st.write('- Improve customer support quality')
+        st.write('- Provide personalized retention offers')
+        st.write('- Reduce service-related complaints')
 
     else:
-
-        st.error('High Risk Customer')
-
-        if monthlycharges > 80:
-
-            st.info('Suggested Action: Immediate retention intervention with premium discount offers.')
-
-        elif tenure < 12:
-
-            st.info('Suggested Action: Assign dedicated onboarding and customer success support.')
-
-        else:
-
-            st.info('Suggested Action: Recommend long-term contract plans and personalized retention incentives.')
+        st.success(f'Customer is likely to stay with probability {(1 - churn_probability):.2%}')
+        st.subheader('Recommendations')
+        st.write('- Maintain customer engagement')
+        st.write('- Continue quality support services')
+        st.write('- Provide loyalty rewards')
