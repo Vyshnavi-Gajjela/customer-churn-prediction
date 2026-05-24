@@ -8,7 +8,7 @@ The project includes:
 - Data preprocessing
 - Exploratory Data Analysis (EDA)
 - Feature engineering
-- Model training and comparison
+- Multiple model training and comparison
 - Feature importance analysis
 - Streamlit deployment
 
@@ -61,6 +61,7 @@ The dataset contains:
 - Streamlit
 - Matplotlib
 - Seaborn
+- Joblib
 
 ## Business Insights
 
@@ -97,7 +98,7 @@ customer-churn-prediction/
 ├── .gitignore
 │
 ├── data/
-│   └── customer_churn.csv
+│   └── WA_Fn-UseC_-Telco-Customer-Churn.csv
 │
 ├── models/
 │
@@ -125,7 +126,7 @@ python train.py
 ### Run the Streamlit Application
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
 ## Streamlit Application
