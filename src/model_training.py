@@ -1,207 +1,69 @@
-from imblearn.over_sampling import SMOTE
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import StratifiedKFold
+"""Model definitions and preprocessing pipeline."""
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistGradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.base import BaseEstimator, ClassifierMixin
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping
+from src.feature_engineering import ChurnFeatureEngineer
 
-# HANDLE CLASS IMBALANCE
-def handle_imbalance(X_train, y_train):
-    print("\nBefore SMOTE:")
-    print(y_train.value_counts())
-    smote = SMOTE(random_state=42)
-    X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
-    print("\nAfter SMOTE:")
-    print(y_resampled.value_counts())
+class CatBoostSklearnCompat(BaseEstimator, ClassifierMixin):
+    """Small sklearn-compatible wrapper for CatBoost across sklearn versions."""
+    def __init__(self, iterations=350, depth=6, learning_rate=0.04, class_weights=None, random_seed=42):
+        self.iterations = iterations; self.depth = depth; self.learning_rate = learning_rate
+        self.class_weights = class_weights; self.random_seed = random_seed
+    def fit(self, X, y):
+        self.model_ = CatBoostClassifier(iterations=self.iterations, depth=self.depth, learning_rate=self.learning_rate,
+            loss_function="Logloss", eval_metric="AUC", class_weights=self.class_weights, verbose=False,
+            random_seed=self.random_seed, allow_writing_files=False, thread_count=-1)
+        self.model_.fit(X, y)
+        self.classes_ = self.model_.classes_
+        return self
+    def predict(self, X): return self.model_.predict(X)
+    def predict_proba(self, X): return self.model_.predict_proba(X)
 
-    return X_resampled, y_resampled
 
-# CROSS VALIDATION
-def perform_cross_validation(model, X_train, y_train):
-    stratified_cv = StratifiedKFold(
-        n_splits=5,
-        shuffle=True,
-        random_state=42
-    )
-    
-    scores = cross_val_score(
-        model,
-        X_train,
-        y_train,
-        cv=stratified_cv,
-        scoring='f1'
-    )   
-    
-    print("\nCross Validation F1 Scores:")
-    print(scores)
-    print(f"\nAverage F1 Score: {scores.mean():.4f}")
+def build_preprocessor(X, scale_numeric):
+    numeric = list(X.select_dtypes(include="number").columns)
+    categorical = list(X.select_dtypes(exclude="number").columns)
+    num_steps = [("imputer", SimpleImputer(strategy="median", keep_empty_features=True))]
+    if scale_numeric: num_steps.append(("scaler", StandardScaler()))
+    cat_pipe = Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent", keep_empty_features=True)),
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=True)),
+    ])
+    return ColumnTransformer([
+        ("numeric", Pipeline(num_steps), numeric),
+        ("categorical", cat_pipe, categorical),
+    ], remainder="drop", verbose_feature_names_out=False)
 
-# LOGISTIC REGRESSION
-def train_logistic_regression(X_train, y_train):
-    model = LogisticRegression(max_iter=2000,class_weight='balanced',random_state=42)
-    perform_cross_validation(model, X_train, y_train)
-    model.fit(X_train, y_train)
-    print("\nLogistic Regression Training Completed")
 
-    return model
-
-# DECISION TREE
-def train_decision_tree(X_train, y_train):
-    model = DecisionTreeClassifier(max_depth=6,class_weight='balanced',random_state=42)
-    perform_cross_validation(model, X_train, y_train)
-    model.fit(X_train, y_train)
-    print("\nDecision Tree Training Completed")
-
-    return model
-
-# RANDOM FOREST WITH HYPERPARAMETER TUNING
-def train_random_forest(X_train, y_train):
-    rf_model = RandomForestClassifier(class_weight='balanced',random_state=42)
-    param_grid = {
-        'n_estimators': [100, 200, 300],
-        'max_depth': [5, 10, 15],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4]
+def model_specs(y_train):
+    positives = max(int((y_train == 1).sum()), 1); negatives = max(int((y_train == 0).sum()), 1)
+    ratio = negatives / positives
+    # class weights are a training-only response to the imbalanced target.
+    return {
+        "Logistic Regression": (LogisticRegression(max_iter=2000, class_weight="balanced", random_state=42), True),
+        "Decision Tree": (DecisionTreeClassifier(max_depth=7, min_samples_leaf=10, class_weight="balanced", random_state=42), False),
+        "Random Forest": (RandomForestClassifier(n_estimators=350, min_samples_leaf=3, class_weight="balanced_subsample", n_jobs=-1, random_state=42), False),
+        "SVM": (SVC(C=1.0, kernel="rbf", class_weight="balanced", probability=True, random_state=42), True),
+        "KNN": (KNeighborsClassifier(n_neighbors=15, weights="distance", n_jobs=-1), True),
+        "XGBoost": (XGBClassifier(n_estimators=350, max_depth=4, learning_rate=0.04, subsample=0.85, colsample_bytree=0.85, min_child_weight=3, reg_lambda=2, scale_pos_weight=ratio, eval_metric="logloss", n_jobs=-1, random_state=42), False),
+        "CatBoost": (CatBoostSklearnCompat(iterations=350, depth=6, learning_rate=0.04, class_weights=[1.0, ratio], random_seed=42), False),
+        "Artificial Neural Network": (MLPClassifier(hidden_layer_sizes=(64, 32), activation="relu", alpha=0.001, batch_size=64, learning_rate_init=0.001, max_iter=250, early_stopping=True, validation_fraction=0.15, n_iter_no_change=15, random_state=42), True),
     }
 
-    random_search = RandomizedSearchCV(
-        estimator=rf_model,
-        param_distributions=param_grid,
-        n_iter=10,
-        cv=3,
-        scoring='f1',
-        random_state=42,
-        n_jobs=-1
-    )
 
-    random_search.fit(X_train, y_train)
-    best_model = random_search.best_estimator_
-    perform_cross_validation(best_model,X_train,y_train)
-    print("\nRandom Forest Training Completed")
-    print("\nBest Parameters:")
-    print(random_search.best_params_)
-
-    return best_model
-
-# SUPPORT VECTOR MACHINE
-def train_svm(X_train, y_train):
-    model = SVC(
-        kernel='rbf',
-        probability=True,
-        class_weight='balanced',
-        random_state=42
-    )
-
-    perform_cross_validation(model, X_train, y_train)
-    model.fit(X_train, y_train)
-    print("\nSVM Training Completed")
-
-    return model
-
-# K-NEAREST NEIGHBORS
-def train_knn(X_train, y_train):
-    model = KNeighborsClassifier(n_neighbors=7)
-    perform_cross_validation(model, X_train, y_train)
-    model.fit(X_train, y_train)
-    print("\nKNN Training Completed")
-
-    return model
-
-# XGBOOST WITH HYPERPARAMETER TUNING
-def train_xgboost(X_train, y_train):
-    xgb_model = XGBClassifier(
-        eval_metric='logloss',
-        use_label_encoder=False,
-        random_state=42
-    )
-    
-    param_grid = {
-        'n_estimators': [100, 200, 300],
-        'learning_rate': [0.01, 0.05, 0.1],
-        'max_depth': [3, 5, 7],
-        'subsample': [0.8, 1.0]
-    }
-
-    random_search = RandomizedSearchCV(
-        estimator=xgb_model,
-        param_distributions=param_grid,
-        n_iter=10,
-        cv=3,
-        scoring='f1',
-        random_state=42,
-        n_jobs=-1
-    )
-
-    random_search.fit(X_train, y_train)
-    best_model = random_search.best_estimator_
-    
-    perform_cross_validation(
-        best_model,
-        X_train,
-        y_train
-    )
-
-    print("\nXGBoost Training Completed")
-    print("\nBest Parameters:")
-    print(random_search.best_params_)
-    return best_model
-
-# CATBOOST
-def train_catboost(X_train, y_train):
-
-    model = CatBoostClassifier(
-        iterations=300,
-        learning_rate=0.05,
-        depth=6,
-        verbose=0,
-        random_state=42
-    )
-
-    perform_cross_validation(model, X_train, y_train)
-    model.fit(X_train, y_train)
-    print("\nCatBoost Training Completed")
-
-    return model
-
-
-# ARTIFICIAL NEURAL NETWORK
-def train_ann(X_train, y_train, input_dim):
-    
-    model = Sequential()
-    model.add(Dense(128,activation='relu',input_dim=input_dim))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.3))
-    model.add(Dense(64,activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.3))
-    model.add(Dense(32,activation='relu'))
-    model.add(Dense(1,activation='sigmoid'))
-    model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
-
-    early_stop = EarlyStopping(
-        monitor='val_accuracy',
-        patience=10,
-        restore_best_weights=True
-    )
-
-    model.fit(
-        X_train,
-        y_train,
-        validation_split=0.2,
-        epochs=50,
-        batch_size=32,
-        callbacks=[early_stop],
-        verbose=1
-    )
-
-    print("\nANN Training Completed")
-
-    return model
+def build_pipeline(model, X_train, scale_numeric):
+    return Pipeline([
+        ("feature_engineering", ChurnFeatureEngineer()),
+        ("preprocessor", build_preprocessor(ChurnFeatureEngineer().fit_transform(X_train), scale_numeric)),
+        ("model", model),
+    ])

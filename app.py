@@ -1,101 +1,70 @@
+"""Streamlit app for the saved end-to-end churn pipeline."""
+from pathlib import Path
+import json
 import joblib
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title='Customer Churn Prediction',layout='wide')
+ROOT = Path(__file__).resolve().parent
+MODEL_PATH = ROOT / "models" / "best_model.joblib"
+META_PATH = ROOT / "models" / "model_metadata.json"
+st.set_page_config(page_title="Customer Churn Risk", page_icon="📊", layout="centered")
+st.title("Customer Churn Prediction & Retention Support")
+st.caption("A model-based risk estimate for prioritizing review—not a guarantee that a customer will leave.")
 
-st.title('Customer Churn Prediction System')
+if not MODEL_PATH.exists():
+    st.error("Trained model not found. Run `python train.py` from the project folder first.")
+    st.stop()
+model = joblib.load(MODEL_PATH)
+metadata = json.loads(META_PATH.read_text(encoding="utf-8")) if META_PATH.exists() else {}
+st.caption(f"Model selected in latest training run: {metadata.get('best_model', 'unknown')}")
 
-st.write('Predict whether a customer is likely to churn or not.')
+with st.form("customer_form"):
+    st.subheader("Customer profile")
+    col1, col2 = st.columns(2)
+    with col1:
+        gender = st.selectbox("Gender", ["Female", "Male"])
+        senior = st.selectbox("Senior citizen?", [0, 1], format_func=lambda x: "Yes" if x else "No")
+        partner = st.selectbox("Has partner?", ["Yes", "No"])
+        dependents = st.selectbox("Has dependents?", ["Yes", "No"])
+        tenure = st.slider("Tenure (months)", 0, 72, 12)
+        phone = st.selectbox("Phone service", ["Yes", "No"])
+        multiple = st.selectbox("Multiple lines", ["No phone service", "Yes", "No"])
+        internet = st.selectbox("Internet service", ["DSL", "Fiber optic", "No"])
+        contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
+        paperless = st.selectbox("Paperless billing", ["Yes", "No"])
+    with col2:
+        online_security = st.selectbox("Online security", ["No", "Yes", "No internet service"])
+        online_backup = st.selectbox("Online backup", ["No", "Yes", "No internet service"])
+        device_protection = st.selectbox("Device protection", ["No", "Yes", "No internet service"])
+        tech_support = st.selectbox("Tech support", ["No", "Yes", "No internet service"])
+        streaming_tv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
+        streaming_movies = st.selectbox("Streaming movies", ["No", "Yes", "No internet service"])
+        monthly = st.number_input("Monthly charges ($)", min_value=0.0, max_value=2000.0, value=70.0, step=1.0)
+        total = st.number_input("Total charges ($)", min_value=0.0, max_value=100000.0, value=float(monthly * tenure), step=10.0)
+        payment = st.selectbox("Payment method", ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
+    submitted = st.form_submit_button("Estimate churn risk", type="primary")
 
-# LOAD SCALER
-scaler = joblib.load('models/scaler.pkl')
-
-# LOAD FEATURE NAMES
-feature_names = joblib.load('models/feature_names.pkl')
-
-# LOAD BEST MODEL
-model = joblib.load('models/best_model.pkl')
-
-# USER INPUTS
-SeniorCitizen = st.selectbox('Senior Citizen',[0, 1])
-
-tenure = st.slider('Tenure (Months)',0,72,12)
-
-InternetService = st.selectbox('Internet Service',['DSL', 'Fiber optic', 'No'])
-
-Contract = st.selectbox('Contract Type',['Month-to-month', 'One year', 'Two year'])
-
-PaymentMethod = st.selectbox(
-    'Payment Method',
-    [
-        'Electronic check',
-        'Mailed check',
-        'Bank transfer (automatic)',
-        'Credit card (automatic)'
-    ]
-)
-
-MonthlyCharges = st.number_input('Monthly Charges',min_value=0.0,value=70.0)
-
-TotalCharges = st.number_input('Total Charges',min_value=0.0,value=1000.0)
-
-TotalServices = st.slider('Total Services Used',0,6,3)
-
-# PREDICT BUTTON
-if st.button('Predict Churn'):
-
-    AvgMonthlySpend = TotalCharges / (tenure + 1)
-
-    HighValueCustomer = int(MonthlyCharges > 70)
-
-    MonthlyContractRisk = int(Contract == 'Month-to-month')
-
-    input_data = pd.DataFrame({
-        'SeniorCitizen': [SeniorCitizen],
-        'tenure': [tenure],
-        'MonthlyCharges': [MonthlyCharges],
-        'TotalCharges': [TotalCharges],
-        'AvgMonthlySpend': [AvgMonthlySpend],
-        'TotalServices': [TotalServices],
-        'HighValueCustomer': [HighValueCustomer],
-        'MonthlyContractRisk': [MonthlyContractRisk],
-
-        'InternetService_Fiber optic': [1 if InternetService == 'Fiber optic' else 0],
-
-        'InternetService_No': [1 if InternetService == 'No' else 0],
-
-        'Contract_One year': [1 if Contract == 'One year' else 0],
-
-        'Contract_Two year': [1 if Contract == 'Two year' else 0],
-
-        'PaymentMethod_Credit card (automatic)': [1 if PaymentMethod == 'Credit card (automatic)' else 0],
-
-        'PaymentMethod_Electronic check': [1 if PaymentMethod == 'Electronic check' else 0],
-
-        'PaymentMethod_Mailed check': [1 if PaymentMethod == 'Mailed check' else 0]
-    })
-
-    input_data = input_data.reindex(columns=feature_names,fill_value=0)
-
-    input_scaled = scaler.transform(input_data)
-
-    churn_probability = model.predict_proba(input_scaled)[0][1]
-    prediction = int(churn_probability >= 0.5)
-
-    st.subheader('Prediction Result')
-
-    if prediction == 1:
-        st.error(f'Customer is likely to churn with probability {churn_probability:.2%}')
-        st.subheader('Recommendations')
-        st.write('- Offer long-term contract discounts')
-        st.write('- Improve customer support quality')
-        st.write('- Provide personalized retention offers')
-        st.write('- Reduce service-related complaints')
-
+if submitted:
+    row = pd.DataFrame([{
+        "gender": gender, "SeniorCitizen": int(senior), "Partner": partner, "Dependents": dependents,
+        "tenure": int(tenure), "PhoneService": phone, "MultipleLines": multiple,
+        "InternetService": internet, "OnlineSecurity": online_security, "OnlineBackup": online_backup,
+        "DeviceProtection": device_protection, "TechSupport": tech_support, "StreamingTV": streaming_tv,
+        "StreamingMovies": streaming_movies, "Contract": contract, "PaperlessBilling": paperless,
+        "PaymentMethod": payment, "MonthlyCharges": float(monthly), "TotalCharges": float(total),
+    }])
+    probability = float(model.predict_proba(row)[0, 1])
+    threshold = float(metadata.get("thresholds_tuned_on_validation", {}).get(metadata.get("best_model", ""), {}).get("threshold_selected_on_validation", 0.5))
+    risk = "High" if probability >= 0.70 else "Medium" if probability >= 0.30 else "Low"
+    st.subheader("Prediction")
+    st.metric("Estimated churn probability", f"{probability:.1%}")
+    st.write(f"**Risk band:** {risk}")
+    st.progress(min(max(probability, 0.0), 1.0))
+    if probability >= threshold:
+        st.warning("The model classifies this customer as likely to churn at the validation-selected operating threshold. Consider reviewing the account for an appropriate retention intervention.")
     else:
-        st.success(f'Customer is likely to stay with probability {(1 - churn_probability):.2%}')
-        st.subheader('Recommendations')
-        st.write('- Maintain customer engagement')
-        st.write('- Continue quality support services')
-        st.write('- Provide loyalty rewards')
+        st.info("The model does not classify this customer as likely to churn at the validation-selected operating threshold. Continue normal customer monitoring.")
+    st.caption("The risk band uses probability bands (<30%, 30–<70%, ≥70%). The model's classification threshold is selected separately on validation data.")
+    with st.expander("Input data used"):
+        st.dataframe(row, use_container_width=True)

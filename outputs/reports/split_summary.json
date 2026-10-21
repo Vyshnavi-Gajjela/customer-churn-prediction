@@ -1,0 +1,10 @@
+{
+  "train_rows": 4225,
+  "validation_rows": 1409,
+  "test_rows": 1409,
+  "train_churn_rate": 0.26532544378698225,
+  "validation_churn_rate": 0.2654364797728886,
+  "test_churn_rate": 0.2654364797728886,
+  "random_state": 42,
+  "split": "60/20/20 stratified"
+}

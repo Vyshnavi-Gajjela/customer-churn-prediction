@@ -1,32 +1,8 @@
-# Python Cache
+.venv/
+venv/
 __pycache__/
 *.py[cod]
-
-# Virtual Environment
-venv/
-env/
-.venv/
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-
-# Streamlit
-.streamlit/
-
-# Outputs
-outputs/plots/*
-outputs/reports/*
-
-# OS Files
 .DS_Store
-Thumbs.db
 
-# IDE Files
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# Temporary Files
-*.tmp
+__pycache__/
+*.py[cod]

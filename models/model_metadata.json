@@ -1,0 +1,89 @@
+{
+  "best_model": "Logistic Regression",
+  "selection_rule": "Select highest validation-set F2 at a threshold tuned on validation data; use validation ROC-AUC and test precision as secondary reporting context. The test set is not used to choose the winning model.",
+  "business_rationale": "Churn intervention often values finding at-risk customers, so F2 weights recall more than precision. Thresholds must ultimately reflect retention budget and intervention costs.",
+  "thresholds_tuned_on_validation": {
+    "Logistic Regression": {
+      "threshold_selected_on_validation": 0.37000000000000016,
+      "validation_f2": 0.762936753648828
+    },
+    "Decision Tree": {
+      "threshold_selected_on_validation": 0.36000000000000015,
+      "validation_f2": 0.7420652659812249
+    },
+    "Random Forest": {
+      "threshold_selected_on_validation": 0.3200000000000001,
+      "validation_f2": 0.7588454376163873
+    },
+    "SVM": {
+      "threshold_selected_on_validation": 0.21000000000000002,
+      "validation_f2": 0.7350142721217888
+    },
+    "KNN": {
+      "threshold_selected_on_validation": 0.24000000000000005,
+      "validation_f2": 0.7139588100686499
+    },
+    "XGBoost": {
+      "threshold_selected_on_validation": 0.23000000000000004,
+      "validation_f2": 0.7554417413572343
+    },
+    "CatBoost": {
+      "threshold_selected_on_validation": 0.35000000000000014,
+      "validation_f2": 0.7629054362722705
+    },
+    "Artificial Neural Network": {
+      "threshold_selected_on_validation": 0.2,
+      "validation_f2": 0.7575757575757576
+    }
+  },
+  "feature_columns_before_encoding": [
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+    "AvgMonthlySpend",
+    "TotalServices",
+    "TenureGroup",
+    "MonthlyContractRisk"
+  ],
+  "target_mapping": {
+    "No": 0,
+    "Yes": 1
+  },
+  "split": {
+    "train_rows": 4225,
+    "validation_rows": 1409,
+    "test_rows": 1409,
+    "train_churn_rate": 0.26532544378698225,
+    "validation_churn_rate": 0.2654364797728886,
+    "test_churn_rate": 0.2654364797728886,
+    "random_state": 42,
+    "split": "60/20/20 stratified"
+  },
+  "models_trained": [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest",
+    "SVM",
+    "KNN",
+    "XGBoost",
+    "CatBoost",
+    "Artificial Neural Network"
+  ],
+  "note": "Test metrics are for final comparison/reporting; do not tune repeatedly against the test set."
+}
